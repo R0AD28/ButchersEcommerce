@@ -14,22 +14,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Mantenemos tu paso de la inyección de la llave privada de pruebas
-      - name: Create PEM key directory and file
-        run: |
-          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.organization=R0AD28 \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.qualitygate.wait=false \
-            -DskipTests \
-            -Dmaven.test.skip=true \
-            -f backend/auth-service/pom.xml
-
-      # CORREGIDO: Subido a Java 21 para que compile el código del microservicio
+      # FORZADO: Configuración explícita de Java 21 utilizando la acción oficial v4
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: 21
+          java-version: '21'
           distribution: 'zulu'
 
       - name: Cache SonarQube packages
@@ -46,7 +35,7 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      # CORREGIDO: Se inyectan los parámetros obligatorios y la ruta del pom.xml
+      # COMANDO DEFINITIVO: Con tu organización R0AD28 y saltando pruebas
       - name: Build and analyze
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,7 +43,7 @@ jobs:
         run: |
           mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.organization=R0AD28 \
-            -Dsonar.host.url=https://https://sonarcloud.io \
+            -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.qualitygate.wait=false \
             -DskipTests \
             -Dmaven.test.skip=true \
