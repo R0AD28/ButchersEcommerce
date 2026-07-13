@@ -49,6 +49,7 @@ jobs:
         run: |
           mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=R0AD28_ButchersEcommerce3 \
+            -Dsonar.organization=camilalm01 \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.qualitygate.wait=false \
             -DskipTests \
