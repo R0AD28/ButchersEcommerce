@@ -1,0 +1,29 @@
+name: OWASP ZAP Baseline Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+    name: Escaneo Dinámico con ZAP
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 1. Levanta tu aplicación aquí (Ejemplo con Docker Compose o Node)
+      - name: Levantar la App
+        run: |
+          docker-compose up -d  # O el comando que uses para iniciar tu servidor local
+          sleep 15              # Dale unos segundos para que cargue bien
+
+      # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:3000' # Cambia esto por el puerto de tu app
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue_title: 'Alerta de Seguridad Encontrada por ZAP'
