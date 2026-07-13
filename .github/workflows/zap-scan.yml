@@ -14,12 +14,10 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # 1. Levanta tu aplicación aquí (Ejemplo con Docker Compose o Node)
-      # 1. Levantar la App usando la sintaxis actual de Docker
       - name: Levantar la App
         run: |
-          docker compose up -d  # <- Nota que ya no lleva el guion (-)
-          sleep 15
+          docker compose -f backend/docker-compose.yml up -d
+          sleep 30  # Como son varios microservicios, dale 30 segundos para que levanten todos bien
 
       # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
       - name: OWASP ZAP Baseline Scan
