@@ -10,38 +10,46 @@ jobs:
     name: Build and analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
 
-      # =========================================================================
-      # PASO NUEVO: Crear la estructura de carpetas e inyectar la llave privada
-      # =========================================================================
+      # Mantenemos tu paso de la inyección de la llave privada de pruebas
       - name: Create PEM key directory and file
         run: |
           mkdir -p backend/auth-service/src/test/resources/test-keys
           echo "${{ secrets.TEST_PRIVATE_KEY }}" > backend/auth-service/src/test/resources/test-keys/private-key.pem
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+      # CORREGIDO: Subido a Java 21 para que compile el código del microservicio
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          java-version: 17
-          distribution: 'zulu' # Alternative distribution options are available.
+          java-version: 21
+          distribution: 'zulu'
+
       - name: Cache SonarQube packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
+
       - name: Cache Maven packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
+
+      # CORREGIDO: Se inyectan los parámetros obligatorios y la ruta del pom.xml
       - name: Build and analyze
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        # Añadido -DskipTests al final del comando
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=R0AD28_ButchersEcommerce3 -DskipTests
+        run: |
+          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.projectKey=R0AD28_ButchersEcommerce3 \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.qualitygate.wait=false \
+            -DskipTests \
+            -f backend/auth-service/pom.xml
