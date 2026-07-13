@@ -1,0 +1,341 @@
+services:
+  # BASE DE DATOS DE AUTENTICACIÓN
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USERNAME}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${AUTH_DB_USERNAME} -d ${AUTH_DB_NAME}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - ecommerce-network
+
+  # BASE DE DATOS DEL CATÁLOGO
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: catalog-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME}
+      POSTGRES_USER: ${CATALOG_DB_USERNAME}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${CATALOG_DB_USERNAME} -d ${CATALOG_DB_NAME}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - ecommerce-network
+
+  # BASE DE DATOS DE COMERCIO
+  commerce-db:
+    image: postgres:16-alpine
+    container_name: commerce-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${COMMERCE_DB_NAME}
+      POSTGRES_USER: ${COMMERCE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${COMMERCE_DB_PASSWORD}
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - commerce_db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${COMMERCE_DB_USERNAME} -d ${COMMERCE_DB_NAME}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - ecommerce-network
+
+  # BASE DE DATOS DE AUDITORÍA
+  audit-db:
+    image: postgres:16-alpine
+    container_name: audit-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${AUDIT_DB_NAME}
+      POSTGRES_USER: ${AUDIT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${AUDIT_DB_PASSWORD}
+
+    ports:
+      - "5435:5432"
+
+    volumes:
+      - audit_db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${AUDIT_DB_USERNAME} -d ${AUDIT_DB_NAME}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - ecommerce-network
+
+  # AUTH-SERVICE
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+
+    container_name: auth-service
+    restart: unless-stopped
+
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
+    environment:
+      SERVER_PORT: 8080
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${AUTH_DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD}
+
+      # Auth-service posee la clave privada porque genera los JWT.
+      JWT_PRIVATE_KEY_PATH: file:/app/secrets/private-key.pem
+      JWT_PUBLIC_KEY_PATH: file:/app/secrets/public-key.pem
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: butchers-ecommerce
+
+      # Dirección de audit-service.
+      AUDIT_SERVICE_URL: http://audit-service:8083
+
+      # Token utilizado por auth-service para escribir auditorías.
+      AUTH_TO_AUDIT_SERVICE_TOKEN: ${AUTH_TO_AUDIT_SERVICE_TOKEN}
+
+      # Tokens que auth-service acepta cuando otros servicios
+      # consultan roles y permisos vigentes.
+      CATALOG_TO_AUTH_SERVICE_TOKEN: ${CATALOG_TO_AUTH_SERVICE_TOKEN}
+      COMMERCE_TO_AUTH_SERVICE_TOKEN: ${COMMERCE_TO_AUTH_SERVICE_TOKEN}
+      AUDIT_TO_AUTH_SERVICE_TOKEN: ${AUDIT_TO_AUTH_SERVICE_TOKEN}
+
+    volumes:
+      - ./secrets/private-key.pem:/app/secrets/private-key.pem:ro
+      - ./secrets/public-key.pem:/app/secrets/public-key.pem:ro
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - ecommerce-network
+
+  # CATALOG-SERVICE
+  catalog-service:
+    build:
+      context: ./backend/catalog-service
+      dockerfile: Dockerfile
+
+    container_name: catalog-service
+    restart: unless-stopped
+
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+
+      auth-service:
+        condition: service_started
+
+      audit-service:
+        condition: service_started
+
+    environment:
+      SERVER_PORT: 8081
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://catalog-db:5432/${CATALOG_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${CATALOG_DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${CATALOG_DB_PASSWORD}
+
+      # Catalog-service solamente valida JWT.
+      JWT_PUBLIC_KEY_PATH: file:/app/secrets/public-key.pem
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: butchers-ecommerce
+
+      AUTH_SERVICE_URL: http://auth-service:8080
+      AUDIT_SERVICE_URL: http://audit-service:8083
+
+      # Catalog-service consulta permisos en auth-service.
+      CATALOG_TO_AUTH_SERVICE_TOKEN: ${CATALOG_TO_AUTH_SERVICE_TOKEN}
+
+      # Catalog-service registra eventos en audit-service.
+      CATALOG_TO_AUDIT_SERVICE_TOKEN: ${CATALOG_TO_AUDIT_SERVICE_TOKEN}
+
+    volumes:
+      - ./secrets/public-key.pem:/app/secrets/public-key.pem:ro
+
+    ports:
+      - "8081:8081"
+
+    networks:
+      - ecommerce-network
+
+  # COMMERCE-SERVICE
+  commerce-service:
+    build:
+      context: ./backend/commerce-service
+      dockerfile: Dockerfile
+
+    container_name: commerce-service
+    restart: unless-stopped
+
+    depends_on:
+      commerce-db:
+        condition: service_healthy
+
+      auth-service:
+        condition: service_started
+
+      catalog-service:
+        condition: service_started
+
+      audit-service:
+        condition: service_started
+
+    environment:
+      SERVER_PORT: 8082
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://commerce-db:5432/${COMMERCE_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${COMMERCE_DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${COMMERCE_DB_PASSWORD}
+
+      # Commerce-service solamente valida JWT.
+      JWT_PUBLIC_KEY_PATH: file:/app/secrets/public-key.pem
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: butchers-ecommerce
+
+      # Servicios con los que se comunica.
+      AUTH_SERVICE_URL: http://auth-service:8080
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      AUDIT_SERVICE_URL: http://audit-service:8083
+
+      # Consulta roles y permisos.
+      COMMERCE_TO_AUTH_SERVICE_TOKEN: ${COMMERCE_TO_AUTH_SERVICE_TOKEN}
+
+      # Registra pedidos, pagos y cambios de estado.
+      COMMERCE_TO_AUDIT_SERVICE_TOKEN: ${COMMERCE_TO_AUDIT_SERVICE_TOKEN}
+
+    volumes:
+      - ./secrets/public-key.pem:/app/secrets/public-key.pem:ro
+
+    ports:
+      - "8082:8082"
+
+    networks:
+      - ecommerce-network
+
+  # AUDIT-SERVICE
+  audit-service:
+    build:
+      context: ./backend/audit-service
+      dockerfile: Dockerfile
+
+    container_name: audit-service
+    restart: unless-stopped
+
+    depends_on:
+      audit-db:
+        condition: service_healthy
+
+      auth-service:
+        condition: service_started
+
+    environment:
+      SERVER_PORT: 8083
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://audit-db:5432/${AUDIT_DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${AUDIT_DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${AUDIT_DB_PASSWORD}
+
+      # Audit-service valida los JWT de los auditores.
+      JWT_PUBLIC_KEY_PATH: file:/app/secrets/public-key.pem
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: butchers-ecommerce
+
+      AUTH_SERVICE_URL: http://auth-service:8080
+
+      # Audit-service consulta permisos del auditor.
+      AUDIT_TO_AUTH_SERVICE_TOKEN: ${AUDIT_TO_AUTH_SERVICE_TOKEN}
+
+      # Tokens aceptados para registrar eventos.
+      AUTH_TO_AUDIT_SERVICE_TOKEN: ${AUTH_TO_AUDIT_SERVICE_TOKEN}
+      CATALOG_TO_AUDIT_SERVICE_TOKEN: ${CATALOG_TO_AUDIT_SERVICE_TOKEN}
+      COMMERCE_TO_AUDIT_SERVICE_TOKEN: ${COMMERCE_TO_AUDIT_SERVICE_TOKEN}
+
+      # Clave utilizada para la cadena HMAC.
+      AUDIT_INTEGRITY_SECRET: ${AUDIT_INTEGRITY_SECRET}
+
+      # Detección de eventos sospechosos.
+      AUDIT_FAILURE_THRESHOLD: ${AUDIT_FAILURE_THRESHOLD:-5}
+      AUDIT_DETECTION_WINDOW_MINUTES: ${AUDIT_DETECTION_WINDOW_MINUTES:-5}
+
+      # Rate limiting.
+      AUDIT_INTERNAL_RATE_LIMIT: ${AUDIT_INTERNAL_RATE_LIMIT:-300}
+      AUDIT_QUERY_RATE_LIMIT: ${AUDIT_QUERY_RATE_LIMIT:-30}
+
+    volumes:
+      - ./secrets/public-key.pem:/app/secrets/public-key.pem:ro
+
+    ports:
+      - "8083:8083"
+
+    networks:
+      - ecommerce-network
+
+# VOLÚMENES
+volumes:
+  auth_db_data:
+  catalog_db_data:
+  commerce_db_data:
+  audit_db_data:
+
+# RED INTERNA
+networks:
+  ecommerce-network:
+    driver: bridge

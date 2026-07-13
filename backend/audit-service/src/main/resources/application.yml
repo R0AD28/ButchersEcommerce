@@ -1,0 +1,62 @@
+server:
+  port: ${AUDIT_SERVICE_PORT:8083}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: audit-service
+  datasource:
+    url: ${AUDIT_DB_URL:jdbc:postgresql://localhost:5435/audit_db}
+    username: ${AUDIT_DB_USERNAME:audit_user}
+    password: ${AUDIT_DB_PASSWORD:audit_password_local}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+security:
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:file:../secrets/public-key.pem}
+    issuer: ${JWT_ISSUER:auth-service}
+    audience: ${JWT_AUDIENCE:butchers-ecommerce}
+  service:
+    name: audit-service
+    # Token con el que audit-service consulta autorización en auth-service.
+    token: ${AUDIT_TO_AUTH_SERVICE_TOKEN}
+  audit:
+    # Secreto exclusivo para firmar la cadena HMAC. No debe almacenarse en Git.
+    integrity-secret: ${AUDIT_INTEGRITY_SECRET}
+    failure-threshold: ${AUDIT_FAILURE_THRESHOLD:5}
+    detection-window-minutes: ${AUDIT_DETECTION_WINDOW_MINUTES:5}
+  rate-limit:
+    internal-per-minute: ${AUDIT_INTERNAL_RATE_LIMIT:300}
+    query-per-minute: ${AUDIT_QUERY_RATE_LIMIT:30}
+  internal-services:
+    # Cada emisor debe tener un token diferente; nunca reutilizar el mismo secreto.
+    auth-service-token: ${AUTH_TO_AUDIT_SERVICE_TOKEN}
+    catalog-service-token: ${CATALOG_TO_AUDIT_SERVICE_TOKEN}
+    commerce-service-token: ${COMMERCE_TO_AUDIT_SERVICE_TOKEN}
+    
+services:
+  auth:
+    base-url: ${AUTH_SERVICE_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p [correlationId:%X{correlationId:-}]"

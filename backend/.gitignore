@@ -1,0 +1,24 @@
+# Secrets
+.env
+*.env
+
+# Maven
+target/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+
+# Permitir únicamente claves RSA exclusivas para pruebas
+!src/test/resources/test-keys/
+!src/test/resources/test-keys/private-key.pem
+!src/test/resources/test-keys/public-key.pem

@@ -1,0 +1,54 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+security:
+  jwt:
+    private-key-path: classpath:test-keys/private-key.pem
+    public-key-path: classpath:test-keys/public-key.pem
+    issuer: auth-service-test
+    audience: butchers-ecommerce-test
+    access-token-expiration-seconds: 900
+
+  login:
+    max-attempts: 5
+    lock-duration-minutes: 15
+
+  refresh-token:
+    expiration-days: 7
+
+  cookie:
+    secure: false
+    same-site: Strict
+    path: /auth
+
+  authorization-cache:
+    ttl-seconds: 30
+
+  internal-services:
+    tokens:
+      catalog-service: test-catalog-token
+      commerce-service: test-commerce-token
+      support-service: test-support-token
+      audit-service: test-audit-token
+
+  services:
+    audit:
+      url: http://localhost:8085
+      name: auth-service-test
+      token: test-auth-service-token
+
+app:
+  admin:
+    email: admin-test@example.com
+    password: TestPassword123!

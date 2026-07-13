@@ -1,0 +1,28 @@
+package com.ecommerce.auth_service.exception;
+
+public enum ErrorCode {
+
+    VALIDATION_ERROR,
+
+    INVALID_CREDENTIALS,
+
+    ACCOUNT_LOCKED,
+
+    ACCOUNT_DISABLED,
+
+    EMAIL_ALREADY_EXISTS,
+
+    USER_NOT_FOUND,
+
+    ROLE_NOT_FOUND,
+
+    INVALID_REFRESH_TOKEN,
+
+    INVALID_ACCESS_TOKEN,
+
+    INVALID_SERVICE_TOKEN,
+
+    INSUFFICIENT_PERMISSION,
+
+    INTERNAL_ERROR
+}
