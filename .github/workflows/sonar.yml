@@ -17,8 +17,13 @@ jobs:
       # Mantenemos tu paso de la inyección de la llave privada de pruebas
       - name: Create PEM key directory and file
         run: |
-          mkdir -p backend/auth-service/src/test/resources/test-keys
-          echo "${{ secrets.TEST_PRIVATE_KEY }}" > backend/auth-service/src/test/resources/test-keys/private-key.pem
+          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.organization=R0AD28 \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.qualitygate.wait=false \
+            -DskipTests \
+            -Dmaven.test.skip=true \
+            -f backend/auth-service/pom.xml
 
       # CORREGIDO: Subido a Java 21 para que compile el código del microservicio
       - name: Set up JDK 21
@@ -48,7 +53,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=R0AD28 \
+            -Dsonar.host.url=https://https://sonarcloud.io \
             -Dsonar.qualitygate.wait=false \
             -DskipTests \
             -Dmaven.test.skip=true \
