@@ -14,10 +14,12 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
+      # 1. Levantar la infraestructura usando la carpeta backend como raíz del comando
       - name: Levantar la App
+        working-directory: ./backend
         run: |
-          docker compose -f backend/docker-compose.yml up -d
-          sleep 30  # Como son varios microservicios, dale 30 segundos para que levanten todos bien
+          docker compose up -d
+          sleep 30  # Tiempo para que inicien todos los microservicios
 
       # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
       - name: OWASP ZAP Baseline Scan
