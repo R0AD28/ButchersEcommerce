@@ -14,13 +14,9 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # 1. Levantar la infraestructura usando la carpeta backend como raíz del comando
-# 1. Forzar el cambio de directorio y compilar explícitamente desde ahí
-      - name: Levantar la App
+      - name: Levantar la App con Contexto Corregido
         run: |
-          cd backend
-          pwd
-          docker compose up -d
+          docker compose -f backend/docker-compose.yml --project-directory . up -d
           sleep 30
           
       # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
