@@ -1,0 +1,111 @@
+name: CI Backend Microservices + SonarQube Cloud
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build & Analyze ${{ matrix.service }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          # - catalog-service
+
+    defaults:
+      run:
+        working-directory: backend/${{ matrix.service }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/${{ matrix.service }}/pom.xml
+
+      - name: Build and run tests
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Detect Checkstyle configuration
+        id: checkstyle
+        run: |
+          if grep -q '<artifactId>maven-checkstyle-plugin</artifactId>' pom.xml \
+             && { [ -f checkstyle.xml ] || [ -f config/checkstyle/checkstyle.xml ]; }; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Checkstyle omitted: plugin or rules file is missing."
+          fi
+
+      - name: Run Checkstyle
+        if: steps.checkstyle.outputs.enabled == 'true'
+        run: ./mvnw --batch-mode --no-transfer-progress checkstyle:check
+
+      - name: Detect SpotBugs configuration
+        id: spotbugs
+        run: |
+          if grep -q '<artifactId>spotbugs-maven-plugin</artifactId>' pom.xml; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SpotBugs omitted: plugin is missing from pom.xml."
+          fi
+
+      - name: Run SpotBugs
+        if: steps.spotbugs.outputs.enabled == 'true'
+        run: ./mvnw --batch-mode --no-transfer-progress spotbugs:check
+
+      - name: Detect Sonar token
+        id: sonar
+        working-directory: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Sonar analysis omitted: SONAR_TOKEN is not configured."
+          fi
+
+      - name: SonarQube Cloud scan
+        if: steps.sonar.outputs.enabled == 'true'
+        uses: SonarSource/sonarqube-scan-action@v7
+        with:
+          projectBaseDir: backend/${{ matrix.service }}
+          args: >
+            -Dsonar.projectKey=camilalm01_ButchersEcommerce${{ matrix.service }}
+            -Dsonar.organization=camilalm01
+            -Dsonar.java.binaries=target/classes
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Upload reports and JAR
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-artifacts
+          if-no-files-found: warn
+          path: |
+            backend/${{ matrix.service }}/target/*.jar
+            backend/${{ matrix.service }}/target/surefire-reports/
+            backend/${{ matrix.service }}/target/checkstyle-result.xml
+            backend/${{ matrix.service }}/target/spotbugsXml.xml
