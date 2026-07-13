@@ -15,12 +15,14 @@ jobs:
         uses: actions/checkout@v4
 
       # 1. Levantar la infraestructura usando la carpeta backend como raíz del comando
+# 1. Forzar el cambio de directorio y compilar explícitamente desde ahí
       - name: Levantar la App
-        working-directory: ./backend
         run: |
+          cd backend
+          pwd
           docker compose up -d
-          sleep 30  # Tiempo para que inicien todos los microservicios
-
+          sleep 30
+          
       # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
