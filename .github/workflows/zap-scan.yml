@@ -15,10 +15,11 @@ jobs:
         uses: actions/checkout@v4
 
       # 1. Levanta tu aplicación aquí (Ejemplo con Docker Compose o Node)
+      # 1. Levantar la App usando la sintaxis actual de Docker
       - name: Levantar la App
         run: |
-          docker-compose up -d  # O el comando que uses para iniciar tu servidor local
-          sleep 15              # Dale unos segundos para que cargue bien
+          docker compose up -d  # <- Nota que ya no lleva el guion (-)
+          sleep 15
 
       # 2. Ejecuta el escáner dinámico apuntando a tu localhost o contenedor
       - name: OWASP ZAP Baseline Scan
